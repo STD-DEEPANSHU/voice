@@ -2,14 +2,15 @@ import os
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-from elevenlabs import generate, save, set_api_key
+from elevenlabs.client import ElevenLabs
 
 # ==================== CONFIG ====================
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
 TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
 VOICE_ID = os.getenv("VOICE_ID", "P5wAx6EHfP4HolovAVoY")
 
-set_api_key(ELEVEN_API_KEY)
+# ElevenLabs client
+client = ElevenLabs(api_key=ELEVEN_API_KEY)
 
 # ==================== LOGGER ====================
 logging.basicConfig(
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ==================== COMMAND HANDLERS ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎙 Send me any text — I’ll reply with a voice message!")
+    await update.message.reply_text("🎙 Send any text — I’ll reply with a voice message!")
 
 async def speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -30,19 +31,22 @@ async def speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🎧 Generating voice, please wait...")
 
     try:
-        audio = generate(
+        audio = client.text_to_speech.convert(
+            voice_id=VOICE_ID,
+            model_id="eleven_multilingual_v2",
             text=text,
-            voice=VOICE_ID,
-            model="eleven_multilingual_v2"
+            output_format="mp3_44100_128"
         )
 
-        save(audio, "voice.mp3")
+        with open("voice.mp3", "wb") as f:
+            f.write(audio)
+
         await update.message.reply_audio(audio=open("voice.mp3", "rb"))
         logger.info("✅ Voice message sent successfully")
 
     except Exception as e:
         logger.error(f"❌ Voice generation failed: {e}")
-        await update.message.reply_text("⚠️ Failed to generate voice. Please try again later.")
+        await update.message.reply_text("⚠️ Voice generation failed. Please try again later.")
 
 # ==================== MAIN ====================
 if __name__ == "__main__":
