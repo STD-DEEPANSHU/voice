@@ -1,38 +1,55 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from elevenlabs import ElevenLabs
 import os
+import logging
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from elevenlabs import generate, save, set_api_key
 
 # ==================== CONFIG ====================
-ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "63c5214a34623f95fb43197a327aa1714a42bafc3a2c0f30bdc2aa880da8b08e")
-TELEGRAM_TOKEN = os.getenv("BOT_TOKEN", "8391689333:AAHpB8bhX8HTB70p60VoJkECe8tSdnp9HJI")
-VOICE_ID = os.getenv("VOICE_ID", "P5wAx6EHfP4HolovAVoY")  # Default if not set
+ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
+TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
+VOICE_ID = os.getenv("VOICE_ID", "P5wAx6EHfP4HolovAVoY")
 
-client = ElevenLabs(api_key=ELEVEN_API_KEY)
+set_api_key(ELEVEN_API_KEY)
 
-# ==================== HANDLERS ====================
+# ==================== LOGGER ====================
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
+# ==================== COMMAND HANDLERS ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎙 Send me any text and I’ll speak it using ElevenLabs voice!")
+    await update.message.reply_text("🎙 Send me any text — I’ll reply with a voice message!")
 
 async def speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    await update.message.reply_text("🎧 Generating voice...")
+    user = update.message.from_user.first_name
+    logger.info(f"🗣 {user} said: {text}")
 
-    audio = client.text_to_speech.convert(
-        text=text,
-        voice_id=VOICE_ID,
-        model_id="eleven_multilingual_v2",
-        output_format="mp3_44100_128",
-    )
+    await update.message.reply_text("🎧 Generating voice, please wait...")
 
-    with open("voice.mp3", "wb") as f:
-        f.write(audio)
+    try:
+        audio = generate(
+            text=text,
+            voice=VOICE_ID,
+            model="eleven_multilingual_v2"
+        )
 
-    await update.message.reply_audio(audio=open("voice.mp3", "rb"))
+        save(audio, "voice.mp3")
+        await update.message.reply_audio(audio=open("voice.mp3", "rb"))
+        logger.info("✅ Voice message sent successfully")
 
-# ==================== RUN BOT ====================
-app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, speak))
-app.run_polling()
+    except Exception as e:
+        logger.error(f"❌ Voice generation failed: {e}")
+        await update.message.reply_text("⚠️ Failed to generate voice. Please try again later.")
+
+# ==================== MAIN ====================
+if __name__ == "__main__":
+    logger.info("🤖 Voice bot is running...")
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, speak))
+
+    app.run_polling()
