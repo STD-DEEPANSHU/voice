@@ -2,12 +2,12 @@ import os
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs  # ✅ correct import
 
 # ========== CONFIG ==========
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # Render me ENV var me add karna
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")  # Render me ENV var me add karna
-VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"  # apna desired ElevenLabs voice id daal
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
 
 # ========== LOGGING ==========
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -17,40 +17,36 @@ logger = logging.getLogger(__name__)
 # ========== ElevenLabs Client ==========
 client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
-# ========== /start Command ==========
+# ========== /start ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎙 Send me any text and I'll reply with a voice message!")
+    await update.message.reply_text("🎙 Send me text and I’ll reply with a voice message!")
 
-# ========== Text to Speech Function ==========
+# ========== Text-to-Speech ==========
 async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         text = update.message.text
-        await update.message.reply_text("🎧 Generating voice, please wait...")
+        await update.message.reply_text("🎧 Generating voice...")
 
-        # ElevenLabs TTS convert
-        audio = client.text_to_speech.convert(
+        # ElevenLabs streaming
+        audio_stream = client.text_to_speech.convert(
             text=text,
             voice_id=VOICE_ID,
             model_id="eleven_multilingual_v2",
             output_format="mp3_44100_128",
         )
 
-        # Convert generator → bytes
-        audio_bytes = b"".join(audio)
+        # Write generator to file
+        with open("voice.mp3", "wb") as f:
+            for chunk in audio_stream:
+                f.write(chunk)
 
-        # Save to file
-        filename = "output.mp3"
-        with open(filename, "wb") as f:
-            f.write(audio_bytes)
-
-        # Send voice file
-        await update.message.reply_voice(voice=open(filename, "rb"))
+        await update.message.reply_voice(voice=open("voice.mp3", "rb"))
 
     except Exception as e:
-        logger.error(f"Error in text_to_speech: {e}")
-        await update.message.reply_text("⚠️ Something went wrong while generating voice.")
+        logger.error(f"Voice generation failed: {e}")
+        await update.message.reply_text("⚠️ Voice generation failed. Check logs!")
 
-# ========== MAIN APP ==========
+# ========== MAIN ==========
 def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
