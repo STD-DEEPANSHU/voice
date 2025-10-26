@@ -1,5 +1,4 @@
 from elevenlabs.client import ElevenLabs
-from elevenlabs import play
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from config import ELEVENLABS_API_KEY, TELEGRAM_BOT_TOKEN, VOICE_ID
@@ -12,7 +11,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
-    audio = client.text_to_speech.convert(
+    audio_stream = client.text_to_speech.convert(
         text=text,
         voice_id=VOICE_ID,
         model_id="eleven_multilingual_v2",
@@ -20,7 +19,8 @@ async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     with open("voice.mp3", "wb") as f:
-        f.write(audio)
+        for chunk in audio_stream:
+            f.write(chunk)
 
     await update.message.reply_voice(voice=open("voice.mp3", "rb"))
 
