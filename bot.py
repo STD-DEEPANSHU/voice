@@ -31,16 +31,21 @@ async def speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🎧 Generating voice, please wait...")
 
     try:
-        audio = client.text_to_speech.convert(
+        # Convert text to speech (generator)
+        audio_stream = client.text_to_speech.convert(
             voice_id=VOICE_ID,
             model_id="eleven_multilingual_v2",
             text=text,
             output_format="mp3_44100_128"
         )
 
+        # Write generator chunks to file
         with open("voice.mp3", "wb") as f:
-            f.write(audio)
+            for chunk in audio_stream:
+                if chunk:
+                    f.write(chunk)
 
+        # Send audio to Telegram
         await update.message.reply_audio(audio=open("voice.mp3", "rb"))
         logger.info("✅ Voice message sent successfully")
 
@@ -52,6 +57,11 @@ async def speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     logger.info("🤖 Voice bot is running...")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, speak))
+
+    app.run_polling()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, speak))
