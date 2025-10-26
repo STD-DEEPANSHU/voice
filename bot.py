@@ -5,8 +5,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 from elevenlabs.client import ElevenLabs
 
 # ==================== CONFIG ====================
-ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
-TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
+ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "63c5214a34623f95fb43197a327aa1714a42bafc3a2c0f30bdc2aa880da8b08e")
+TELEGRAM_TOKEN = os.getenv("BOT_TOKEN", "8391689333:AAHpB8bhX8HTB70p60VoJkECe8tSdnp9HJI")
 VOICE_ID = os.getenv("VOICE_ID", "P5wAx6EHfP4HolovAVoY")
 
 # ElevenLabs client
