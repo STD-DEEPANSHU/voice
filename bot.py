@@ -6,10 +6,9 @@ from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    MessageHandler,
     ContextTypes,
+    MessageHandler,
     filters,
-    ConversationHandler,
 )
 from dotenv import load_dotenv
 
@@ -23,15 +22,9 @@ VOICE_ID = os.getenv("VOICE_ID")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Conversation state
-ASK_VOICE_TEXT = 1
-
 
 # 🎙️ ElevenLabs Text-to-Speech
 def text_to_speech(text):
-    if not ELEVEN_API_KEY or not VOICE_ID:
-        raise ValueError("ELEVEN_API_KEY or VOICE_ID not found in environment.")
-
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
     headers = {
         "xi-api-key": ELEVEN_API_KEY,
@@ -45,7 +38,7 @@ def text_to_speech(text):
             "similarity_boost": 0.85,
             "style": 0.4,
             "use_speaker_boost": True,
-            "speed": 0.95,
+            "speed": 0.95  # 👈 slower speech
         },
     }
 
@@ -60,58 +53,37 @@ def text_to_speech(text):
     return file_path
 
 
-# 🧠 /start command
+# 🧠 /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Welcome! Type /voice to generate speech from text using ElevenLabs."
-    )
+    await update.message.reply_text("👋 Welcome! Use /voice <text> to generate voice.")
 
 
 # 🗣️ /voice command
 async def voice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🗣️ Send me the text you want to convert into voice.")
-    return ASK_VOICE_TEXT
+    if len(context.args) == 0:
+        await update.message.reply_text("💬 Usage: `/voice your text here`", parse_mode="Markdown")
+        return
 
-
-# 🎧 Handle next message after /voice
-async def handle_voice_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    text = " ".join(context.args)
     user = update.message.from_user.first_name
-    logger.info(f"{user} requested voice for text: {text}")
+    logger.info(f"{user} requested voice for: {text}")
 
     try:
         file_path = text_to_speech(text)
-        await update.message.reply_audio(audio=open(file_path, "rb"))
+        await update.message.reply_voice(voice=open(file_path, "rb"))
     except Exception as e:
         logger.error(f"Error: {e}")
         await update.message.reply_text(f"❌ Error: {e}")
 
-    return ConversationHandler.END
 
-
-# 🚫 Cancel command
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Voice generation cancelled.")
-    return ConversationHandler.END
-
-
-# 🚀 Main function
+# 🚀 Main
 async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Conversation Handler (for /voice)
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("voice", voice_command)],
-        states={
-            ASK_VOICE_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_voice_text)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("voice", voice_command))
 
-    print("✅ Bot is running... (use /voice to generate audio)")
+    print("✅ Bot is running... Use /voice <text> to generate speech")
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
