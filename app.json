@@ -1,0 +1,43 @@
+{
+  "name": "Telegram ElevenLabs TTS Bot",
+  "description": "A Telegram bot that converts text to speech using ElevenLabs API.",
+  "repository": "https://github.com/STD-DEEPANSHU/voice",
+  "logo": "https://elevenlabs.io/favicon.ico",
+  "keywords": ["telegram", "bot", "text-to-speech", "tts", "elevenlabs", "python"],
+  "env": {
+    "TELEGRAM_TOKEN": {
+      "description": "Telegram bot token from @BotFather",
+      "required": true
+    },
+    "ELEVEN_API_KEY": {
+      "description": "ElevenLabs API key (xi-api-key)",
+      "required": true
+    },
+    "VOICE_ID": {
+      "description": "Default ElevenLabs voice ID (e.g. 21m00Tcm4TlvDq8ikWAM)",
+      "required": false,
+      "value": "21m00Tcm4TlvDq8ikWAM"
+    },
+    "MODEL_ID": {
+      "description": "Model ID for ElevenLabs TTS",
+      "required": false,
+      "value": "eleven_multilingual_v2"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "scripts": {
+    "postdeploy": "echo 'Bot deployed successfully!'"
+  },
+  "addons": [],
+  "success_url": "https://t.me/STDXD"
+}
