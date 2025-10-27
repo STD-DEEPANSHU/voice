@@ -1,69 +1,74 @@
 import os
-import logging
-from telegram import Update
+import asyncio
+import tempfile
+from pathlib import Path
+from dotenv import load_dotenv
+import httpx
+from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-from elevenlabs.client import ElevenLabs
 
-# ==================== CONFIG ====================
-ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "63c5214a34623f95fb43197a327aa1714a42bafc3a2c0f30bdc2aa880da8b08e")
-TELEGRAM_TOKEN = os.getenv("BOT_TOKEN", "8391689333:AAHpB8bhX8HTB70p60VoJkECe8tSdnp9HJI")
-VOICE_ID = os.getenv("VOICE_ID", "P5wAx6EHfP4HolovAVoY")
 
-# ElevenLabs client
-client = ElevenLabs(api_key=ELEVEN_API_KEY)
+load_dotenv()
 
-# ==================== LOGGER ====================
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
 
-# ==================== COMMAND HANDLERS ====================
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
+ELEVEN_API_KEY = os.environ.get('ELEVEN_API_KEY')
+DEFAULT_VOICE = os.environ.get('VOICE_ID', '21m00Tcm4TlvDq8ikWAM')
+MODEL_ID = os.environ.get('MODEL_ID', 'eleven_multilingual_v2')
+
+
+# In-memory per-chat voice mapping. For production, persist in DB.
+chat_voice_map = {}
+
+
+ELEVEN_BASE = 'https://api.elevenlabs.io/v1/text-to-speech'
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎙 Send any text — I’ll reply with a voice message!")
+await update.message.reply_text(
+"Hello! Send me text and I'll reply with speech.\nUse /voice <voice_id> to set voice for this chat.\nExample: /voice 21m00Tcm4TlvDq8ikWAM"
+)
 
-async def speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    user = update.message.from_user.first_name
-    logger.info(f"🗣 {user} said: {text}")
 
-    await update.message.reply_text("🎧 Generating voice, please wait...")
 
-    try:
-        # Convert text to speech (generator)
-        audio_stream = client.text_to_speech.convert(
-            voice_id=VOICE_ID,
-            model_id="eleven_multilingual_v2",
-            text=text,
-            output_format="mp3_44100_128"
-        )
 
-        # Write generator chunks to file
-        with open("voice.mp3", "wb") as f:
-            for chunk in audio_stream:
-                if chunk:
-                    f.write(chunk)
+async def set_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+chat_id = update.effective_chat.id
+args = context.args
+if not args:
+await update.message.reply_text("Usage: /voice <voice_id> — current: {}".format(chat_voice_map.get(chat_id, DEFAULT_VOICE)))
+return
+voice_id = args[0].strip()
+chat_voice_map[chat_id] = voice_id
+await update.message.reply_text(f"Voice for this chat set to: {voice_id}")
 
-        # Send audio to Telegram
-        await update.message.reply_audio(audio=open("voice.mp3", "rb"))
-        logger.info("✅ Voice message sent successfully")
 
-    except Exception as e:
-        logger.error(f"❌ Voice generation failed: {e}")
-        await update.message.reply_text("⚠️ Voice generation failed. Please try again later.")
 
-# ==================== MAIN ====================
-if __name__ == "__main__":
-    logger.info("🤖 Voice bot is running...")
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, speak))
+async def tts_text(text: str, voice_id: str):
+"""Call ElevenLabs API (async) and return bytes of audio (mp3) or raise."""
+url = f"{ELEVEN_BASE}/{voice_id}"
+headers = {
+"Accept": "audio/mpeg",
+"Content-Type": "application/json",
+"xi-api-key": ELEVEN_API_KEY,
+}
+payload = {
+"text": text,
+"model_id": MODEL_ID,
+"voice_settings": {"stability": 0.4, "similarity_boost": 0.75}
+}
 
-    app.run_polling()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, speak))
+async with httpx.AsyncClient(timeout=30.0) as client:
+resp = await client.post(url, headers=headers, json=payload)
+if resp.status_code == 200:
+return resp.content
+else:
+raise RuntimeError(f"ElevenLabs API error {resp.status_code}: {resp.text}")
 
-    app.run_polling()
+
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+print("Stopped")
