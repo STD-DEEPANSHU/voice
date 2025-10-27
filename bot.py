@@ -31,9 +31,18 @@ def text_to_speech(text):
         "xi-api-key": ELEVEN_API_KEY,
         "Content-Type": "application/json"
     }
+
+    # 🧩 Added voice settings for slower, smoother voice
     data = {
         "text": text,
-        "model_id": "eleven_multilingual_v2"
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.5,          # emotion consistency
+            "similarity_boost": 0.85,  # clarity
+            "style": 0.4,              # tone softness
+            "use_speaker_boost": True,
+            "speed": 0.85              # 👈 slower tempo (1.0 = normal)
+        }
     }
 
     response = requests.post(url, json=data, headers=headers)
@@ -78,7 +87,7 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Instead of asyncio.run(), we use polling directly
+    # ✅ Clean and stable polling setup (no loop conflict)
     await app.initialize()
     await app.start()
     print("✅ Bot is now running!")
