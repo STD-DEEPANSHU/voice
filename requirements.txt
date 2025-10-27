@@ -3,3 +3,4 @@ aiohttp
 httpx>=0.23.0
 python-dotenv>=0.21.0
 uvicorn>=0.20.0 # only if you plan webhook/ASGI
+requests
