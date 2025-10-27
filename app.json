@@ -5,7 +5,7 @@
   "logo": "https://elevenlabs.io/favicon.ico",
   "keywords": ["telegram", "bot", "text-to-speech", "tts", "elevenlabs", "python"],
   "env": {
-    "TELEGRAM_TOKEN": {
+    "BOT_TOKEN": {
       "description": "Telegram bot token from @BotFather",
       "required": true
     },
