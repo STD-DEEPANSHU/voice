@@ -41,7 +41,7 @@ def text_to_speech(text):
             "similarity_boost": 0.85,  # clarity
             "style": 0.4,              # tone softness
             "use_speaker_boost": True,
-            "speed": 0.85              # 👈 slower tempo (1.0 = normal)
+            "speed": 0.95              # 👈 slower tempo (1.0 = normal)
         }
     }
 
